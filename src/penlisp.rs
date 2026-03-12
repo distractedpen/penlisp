@@ -28,8 +28,8 @@ pub mod tokenizer {
     }
 
     static KEYWORDS: &[&'static str] = &[
-        "=", "+", "-", "*", "/", 
-        ">", ">=", "<", "<=", "!=",
+        "eq", "add", "sub", "mul", "div", 
+        "gt", "ge", "lt", "le", "neq",
         "and", "or", "not", "true", 
         "false", "if", "let", "defun", 
         "lambda", "cons", "nil" 
