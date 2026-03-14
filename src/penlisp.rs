@@ -278,7 +278,7 @@ impl Parser {
         }
     }
 
-    fn binomial_conditional_op(&mut self, op: Symbol) -> Option<String> {
+    fn binomial_conditional_number_op(&mut self, op: Symbol) -> Option<String> {
 
         let lhs_token: Token;
         if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
@@ -306,6 +306,36 @@ impl Parser {
             Symbol::Ge => Some((lhs >= rhs).to_string()),
             Symbol::Lt => Some((lhs < rhs).to_string()),
             Symbol::Le => Some((lhs <= rhs).to_string()),
+            _ => None
+        }
+    }
+
+    fn binomial_conditional_bool_op(&mut self, op: Symbol) -> Option<String> {
+
+        let lhs_token: Token;
+        if self.accept(Symbol::Bool) {
+            lhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            lhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        let rhs_token: Token;
+        if self.accept(Symbol::Bool) {
+            rhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            rhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        let lhs = lhs_token.value.parse::<bool>().unwrap();
+        let rhs = rhs_token.value.parse::<bool>().unwrap();
+
+        match op {
+            Symbol::And => Some((lhs && rhs).to_string()),
+            Symbol::Or => Some((lhs || rhs).to_string()),
             _ => None
         }
     }
@@ -344,7 +374,7 @@ impl Parser {
                     s @ Symbol::Lt |
                     s @ Symbol::Le => {
                         self.lexer.consume_token();
-                        let b = match self.binomial_conditional_op(s) {
+                        let b = match self.binomial_conditional_number_op(s) {
                             Some(b) => b,
                             None => panic!("Failed Conditional Op.")
                         };
@@ -355,7 +385,21 @@ impl Parser {
                             value: b
                         };
                     }
-                    Symbol::Eq => {
+                    s @ Symbol::And |  // can only take bool
+                    s @ Symbol::Or => {
+                        self.lexer.consume_token();
+                        let b = match self.binomial_conditional_bool_op(s) {
+                            Some(b) => b,
+                            None => panic!("Failed Conditional Op.")
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Bool,
+                            value: b
+                        };
+                    }
+                    Symbol::Eq => {  //  can take either bool, int, dec, or string
                         unimplemented!("Eq not unimplemented")
                     }
                     _ => {
