@@ -12,6 +12,7 @@ pub enum Symbol {
     Bool, // true, false
     Literal,
     Nil,
+    Cond,
     Eq, Add, Sub, Mul, Div,
     Gt, Ge, Lt, Le, Ne,
     And, Or, Not, 
@@ -35,6 +36,7 @@ impl fmt::Display for Symbol {
             Symbol::Sub => write!(f, "-"),
             Symbol::Mul => write!(f, "*"),
             Symbol::Div => write!(f, "/"),
+            Symbol::Cond => write!(f, "if"),
             // Conditions
             Symbol::Eq => write!(f, "="),
             Symbol::Gt => write!(f, ">"),
@@ -56,6 +58,7 @@ fn get_symbol(token: &String) -> Symbol {
         "(" => Symbol::Lparen,
         ")" => Symbol::Rparen,
         "nil" => Symbol::Nil,
+        "if" => Symbol::Cond,
         "=" => Symbol::Eq,
         "+" => Symbol::Add,        
         "-" => Symbol::Sub,
@@ -69,8 +72,7 @@ fn get_symbol(token: &String) -> Symbol {
         "and" => Symbol::And,
         "or" => Symbol::Or,
         "not" => Symbol::Not,
-        "true" => Symbol::Bool,
-        "false" => Symbol::Bool,
+        "true" | "false" => Symbol::Bool,
         _ if t.starts_with("\"") && t.ends_with("\"")=> Symbol::Literal,
         _ if t.parse::<i64>().is_ok() => Symbol::Integer,
         _ if t.parse::<f64>().is_ok() => Symbol::Decimal,
@@ -340,6 +342,74 @@ impl Parser {
         }
     }
 
+    fn binomial_equal_op(&mut self, op: Symbol) -> Option<String> {
+
+        let lhs_token: Token;
+        if self.accept(Symbol::Bool) {
+            lhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            lhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        let rhs_token: Token;
+        if self.accept(Symbol::Bool) {
+            rhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            rhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        // both sides must be the same type
+        if lhs_token.symbol != rhs_token.symbol {
+            print!("Cannot compare different types");
+            return None
+        }
+
+        match lhs_token.symbol {
+            Symbol::Bool => {
+                let lhs = lhs_token.value.parse::<bool>().unwrap();
+                let rhs = rhs_token.value.parse::<bool>().unwrap();
+                match op {
+                   Symbol::Eq => Some((lhs == rhs).to_string()),
+                   Symbol::Ne => Some((lhs != rhs).to_string()),
+                   _ => None
+                }
+            }
+            Symbol::Integer => {
+                let lhs = lhs_token.value.parse::<i64>().unwrap();
+                let rhs = rhs_token.value.parse::<i64>().unwrap();
+                match op {
+                   Symbol::Eq => Some((lhs == rhs).to_string()),
+                   Symbol::Ne => Some((lhs != rhs).to_string()),
+                   _ => None
+                }
+            }
+            Symbol::Decimal => {
+                let lhs = lhs_token.value.parse::<f64>().unwrap();
+                let rhs = rhs_token.value.parse::<f64>().unwrap();
+                match op {
+                   Symbol::Eq => Some((lhs == rhs).to_string()),
+                   Symbol::Ne => Some((lhs != rhs).to_string()),
+                   _ => None
+                }
+            }
+            Symbol::Literal => {
+                let lhs = lhs_token.value;
+                let rhs = rhs_token.value;
+                match op {
+                   Symbol::Eq => Some((lhs == rhs).to_string()),
+                   Symbol::Ne => Some((lhs != rhs).to_string()),
+                   _ => None
+                }
+            }
+            _ => None
+        }
+
+    }
+
 
     fn expression(&mut self) -> Token {
         if self.expect(Symbol::Lparen) {
@@ -376,7 +446,7 @@ impl Parser {
                         self.lexer.consume_token();
                         let b = match self.binomial_conditional_number_op(s) {
                             Some(b) => b,
-                            None => panic!("Failed Conditional Op.")
+                            None => panic!("Failed Conditional Number Op.")
                         };
 
                         result = Token {
@@ -390,7 +460,7 @@ impl Parser {
                         self.lexer.consume_token();
                         let b = match self.binomial_conditional_bool_op(s) {
                             Some(b) => b,
-                            None => panic!("Failed Conditional Op.")
+                            None => panic!("Failed Conditional Bool Op.")
                         };
 
                         result = Token {
@@ -399,8 +469,57 @@ impl Parser {
                             value: b
                         };
                     }
-                    Symbol::Eq => {  //  can take either bool, int, dec, or string
-                        unimplemented!("Eq not unimplemented")
+                    s @ Symbol::Eq |
+                    s @ Symbol::Ne => {  //  can take either bool, int, dec, or string
+                        self.lexer.consume_token();
+                        let b = match self.binomial_equal_op(s) {
+                            Some(b) => b,
+                            None => panic!("Failed Equal Op.")
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Bool,
+                            value: b
+                        };
+                    }
+                    Symbol::Cond => {
+                        // conditional syntax
+                        // (if (cond) true_path false_path)
+                        self.lexer.consume_token();
+                        let cond_result_token: Token;
+                        if self.expect(Symbol::Lparen) {
+                            cond_result_token = self.expression();
+                            if cond_result_token.symbol != Symbol::Bool {
+                                panic!("Condition result is not a bool!");
+                            }
+                        } else {
+                            cond_result_token = self.lexer.consume_token().unwrap();
+                        }
+
+                        let cond_result = cond_result_token.value.parse::<bool>().unwrap();
+                        if cond_result {
+                            // true path
+                            if self.accept(Symbol::Lparen) {
+                                result = self.expression();
+                            } else {
+                                result = self.lexer.consume_token().unwrap();
+                            }
+                        } else {
+                            // false path
+                            
+                            // skip the true path
+                            if self.accept(Symbol::Lparen) {
+                                while !self.accept(Symbol::Rparen) {
+                                    self.lexer.consume_token();
+                                }
+                            }
+                            if self.accept(Symbol::Lparen) {
+                                result = self.expression();
+                            } else {
+                                result = self.lexer.consume_token().unwrap();
+                            }
+                        }
                     }
                     _ => {
                         panic!("Unexpected or unimlemented symbol {}", t);
