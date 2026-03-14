@@ -9,11 +9,12 @@ pub enum Symbol {
     Identifier, 
     Integer,
     Decimal,
+    Bool, // true, false
     Literal,
     Nil,
     Eq, Add, Sub, Mul, Div,
     Gt, Ge, Lt, Le, Ne,
-    And, Or, Not, True, False,
+    And, Or, Not, 
 }
 
 impl fmt::Display for Symbol {
@@ -26,26 +27,24 @@ impl fmt::Display for Symbol {
             Symbol::Literal => write!(f, "literal"),
             Symbol::Integer => write!(f, "integer"),
             Symbol::Decimal => write!(f, "decimal"),
+            Symbol::Bool => write!(f, "bool"),
             Symbol::Identifier => write!(f, "identifier"),
             Symbol::Nil => write!(f, "nil"),
             // Expressions
-            Symbol::Add => write!(f, "add"),
-            Symbol::Sub => write!(f, "sub"),
-            Symbol::Mul => write!(f, "mul"),
-            Symbol::Div => write!(f, "div"),
+            Symbol::Add => write!(f, "+"),
+            Symbol::Sub => write!(f, "-"),
+            Symbol::Mul => write!(f, "*"),
+            Symbol::Div => write!(f, "/"),
             // Conditions
-            Symbol::Eq => write!(f, "eq"),
-            Symbol::Gt => write!(f, "gt"),
-            Symbol::Ge => write!(f, "ge"),
-            Symbol::Lt => write!(f, "lt"),
-            Symbol::Le => write!(f, "le"),
-            Symbol::Ne => write!(f, "ne"),
+            Symbol::Eq => write!(f, "="),
+            Symbol::Gt => write!(f, ">"),
+            Symbol::Ge => write!(f, ">="),
+            Symbol::Lt => write!(f, "<"),
+            Symbol::Le => write!(f, "<="),
+            Symbol::Ne => write!(f, "!="),
             Symbol::And => write!(f, "and"),
             Symbol::Or => write!(f, "or"),
             Symbol::Not => write!(f, "not"),
-            Symbol::True => write!(f, "true"),
-            Symbol::False => write!(f, "false"),
-
         }
     }
 }
@@ -57,21 +56,21 @@ fn get_symbol(token: &String) -> Symbol {
         "(" => Symbol::Lparen,
         ")" => Symbol::Rparen,
         "nil" => Symbol::Nil,
-        "eq" => Symbol::Eq,
-        "add" => Symbol::Add,        
-        "sub" => Symbol::Sub,
-        "mul" => Symbol::Mul,
-        "div" => Symbol::Div,
-        "gt" => Symbol::Gt,
-        "ge" => Symbol::Ge,
-        "lt" => Symbol::Lt,
-        "le" => Symbol::Le,
-        "ne" => Symbol::Ne,
+        "=" => Symbol::Eq,
+        "+" => Symbol::Add,        
+        "-" => Symbol::Sub,
+        "*" => Symbol::Mul,
+        "/" => Symbol::Div,
+        ">" => Symbol::Gt,
+        ">=" => Symbol::Ge,
+        "<" => Symbol::Lt,
+        "<=" => Symbol::Le,
+        "!=" => Symbol::Ne,
         "and" => Symbol::And,
         "or" => Symbol::Or,
         "not" => Symbol::Not,
-        "true" => Symbol::True,
-        "false" => Symbol::False,
+        "true" => Symbol::Bool,
+        "false" => Symbol::Bool,
         _ if t.starts_with("\"") && t.ends_with("\"")=> Symbol::Literal,
         _ if t.parse::<i64>().is_ok() => Symbol::Integer,
         _ if t.parse::<f64>().is_ok() => Symbol::Decimal,
@@ -91,17 +90,6 @@ pub struct Token {
     pub loc: usize,
     pub symbol: Symbol,
     pub value: String,
-}
-
-impl Token {
-
-    pub fn nil(loc: usize) -> Self {
-        Token {
-            loc: loc,
-            symbol: Symbol::Nil,
-            value: "nil".to_string()
-        }
-    }
 }
 
 impl PartialEq<Symbol> for Token {
@@ -230,22 +218,10 @@ impl Parser {
         return false;
     }
 
-    // // assumes the next token exists and is an integer
-    // fn integer(&mut self) -> i64 {
-    //     let t = self.lexer.consume_token().unwrap();
-    //     t.value.parse::<i64>().unwrap()
-    // }
-    //
-    // // assumes the next token exists and is an decimal
-    // fn decimal(&mut self) -> f64 {
-    //     let t = self.lexer.consume_token().unwrap();
-    //     t.value.parse::<f64>().unwrap()
-    // }
 
     fn binomial_op(&mut self, op: Symbol) -> Option<String> {
         
         let lhs_token: Token;
-        let rhs_token: Token;
         if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
             lhs_token = self.lexer.consume_token().unwrap();
         } else if self.accept(Symbol::Lparen) {
@@ -254,6 +230,7 @@ impl Parser {
             panic!("Unexpected token {}", self.lexer.peek_token().unwrap());
         }
 
+        let rhs_token: Token;
         if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
             rhs_token = self.lexer.consume_token().unwrap();
         } else if self.accept(Symbol::Lparen) {
@@ -301,6 +278,38 @@ impl Parser {
         }
     }
 
+    fn binomial_conditional_op(&mut self, op: Symbol) -> Option<String> {
+
+        let lhs_token: Token;
+        if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
+            lhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            lhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        let rhs_token: Token;
+        if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
+            rhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            rhs_token = self.expression();
+        } else {
+            return None;
+        }
+
+        let lhs = lhs_token.value.parse::<f64>().unwrap();
+        let rhs = rhs_token.value.parse::<f64>().unwrap();
+
+        match op {
+            Symbol::Gt => Some((lhs > rhs).to_string()),
+            Symbol::Ge => Some((lhs >= rhs).to_string()),
+            Symbol::Lt => Some((lhs < rhs).to_string()),
+            Symbol::Le => Some((lhs <= rhs).to_string()),
+            _ => None
+        }
+    }
+
 
     fn expression(&mut self) -> Token {
         if self.expect(Symbol::Lparen) {
@@ -308,17 +317,19 @@ impl Parser {
         } else {
             panic!("Expected (")
         }
-
         let result: Token;
         
         match self.lexer.peek_token() {
             Some(t) => {
                 match t.symbol {
-                    Symbol::Add => {
+                    s @ Symbol::Add | // Binomial Operations on int and dec
+                    s @ Symbol::Sub | 
+                    s @ Symbol::Mul | 
+                    s @ Symbol::Div => {
                         self.lexer.consume_token();
-                        let v = match self.binomial_op(Symbol::Add) {
+                        let v = match self.binomial_op(s) {
                             Some(v) => v,
-                            None => panic!("What the hell?")
+                            None => panic!("Failed Binomial Op")
                         };
 
                         result = Token {
@@ -327,46 +338,25 @@ impl Parser {
                             value: v
                         };
                     }
-                    Symbol::Sub => {
+                    // Cond
+                    s @ Symbol::Ge | // can only take int and dec
+                    s @ Symbol::Gt |
+                    s @ Symbol::Lt |
+                    s @ Symbol::Le => {
                         self.lexer.consume_token();
-                        let v = match self.binomial_op(Symbol::Sub) {
-                            Some(v) => v,
-                            None => panic!("Invalid input!!")
+                        let b = match self.binomial_conditional_op(s) {
+                            Some(b) => b,
+                            None => panic!("Failed Conditional Op.")
                         };
 
                         result = Token {
                             loc: t.loc,
-                            symbol: Symbol::Integer,
-                            value: v
+                            symbol: Symbol::Bool,
+                            value: b
                         };
                     }
-                    Symbol::Mul => {
-                        self.lexer.consume_token();
-                        let v = match self.binomial_op(Symbol::Mul) {
-                            Some(v) => v,
-                            None => panic!("Invalid input!!")
-                        };
-
-                        result = Token {
-                            loc: t.loc,
-                            symbol: Symbol::Integer,
-                            value: v
-                        };
-                    }
-                    Symbol::Div => {
-                        self.lexer.consume_token();
-                        let v = match self.binomial_op(Symbol::Div) {
-                            Some(v) => v,
-                            None => {
-                                return Token::nil(t.loc);
-                            }
-                        };
-
-                        result = Token {
-                            loc: t.loc,
-                            symbol: Symbol::Integer,
-                            value: v
-                        };
+                    Symbol::Eq => {
+                        unimplemented!("Eq not unimplemented")
                     }
                     _ => {
                         panic!("Unexpected or unimlemented symbol {}", t);
