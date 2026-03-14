@@ -82,7 +82,7 @@ pub fn shell_mode() -> std::io::Result<()> {
         if n == 0 {
             break
         } else {
-            penlisp::run(input.clone());
+            penlisp::run(input.trim().to_string().clone());
         }
         input.clear();
     }

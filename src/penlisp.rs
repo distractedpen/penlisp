@@ -1,105 +1,84 @@
-use core::fmt;
-use std::char;
+use core::{fmt, panic};
+use std::{char};
+
 
 #[derive(Debug, Copy, Clone, PartialEq)]
-pub enum Kind {
-    Start,
-    Keyword,
-    Identifier,
+pub enum Symbol {
+    Lparen,
+    Rparen,
+    Identifier, 
     Integer,
     Decimal,
     Literal,
-    End
+    Nil,
+    Eq, Add, Sub, Mul, Div,
+    Gt, Ge, Lt, Le, Ne,
+    And, Or, Not, True, False,
 }
 
-impl fmt::Display for Kind {
+impl fmt::Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Kind::Start => write!(f, "start"),
-            Kind::End => write!(f, "end"),
-            Kind::Keyword => write!(f, "keyword"),
-            Kind::Literal => write!(f, "literal"),
-            Kind::Integer => write!(f, "integer"),
-            Kind::Decimal => write!(f, "decimal"),
-            Kind::Identifier => write!(f, "identifier"),
-        }
-    }
-}
+            // Sentinals
+            Symbol::Lparen => write!(f, "lparen"),
+            Symbol::Rparen => write!(f, "rparen"),
+            // Types
+            Symbol::Literal => write!(f, "literal"),
+            Symbol::Integer => write!(f, "integer"),
+            Symbol::Decimal => write!(f, "decimal"),
+            Symbol::Identifier => write!(f, "identifier"),
+            Symbol::Nil => write!(f, "nil"),
+            // Expressions
+            Symbol::Add => write!(f, "add"),
+            Symbol::Sub => write!(f, "sub"),
+            Symbol::Mul => write!(f, "mul"),
+            Symbol::Div => write!(f, "div"),
+            // Conditions
+            Symbol::Eq => write!(f, "eq"),
+            Symbol::Gt => write!(f, "gt"),
+            Symbol::Ge => write!(f, "ge"),
+            Symbol::Lt => write!(f, "lt"),
+            Symbol::Le => write!(f, "le"),
+            Symbol::Ne => write!(f, "ne"),
+            Symbol::And => write!(f, "and"),
+            Symbol::Or => write!(f, "or"),
+            Symbol::Not => write!(f, "not"),
+            Symbol::True => write!(f, "true"),
+            Symbol::False => write!(f, "false"),
 
-pub enum Keyword {
-    Eq,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Gt,
-    Ge,
-    Lt,
-    Le,
-    Neq,
-    And,
-    Or,
-    Not,
-    True,
-    False,
-    If,
-    Let,
-    Defun,
-    Lambda,
-    Cons,
-    Nil 
-}
-
-impl fmt::Display for Keyword {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-                Keyword::Eq => write!(f, "eq"),
-                Keyword::Add => write!(f, "add"),
-                Keyword::Sub => write!(f, "sub"),
-                Keyword::Mul => write!(f, "mul"),
-                Keyword::Div => write!(f, "div"),
-                Keyword::Gt => write!(f, "gt"),
-                Keyword::Ge => write!(f, "ge"),
-                Keyword::Lt => write!(f, "lt"),
-                Keyword::Le => write!(f, "le"),
-                Keyword::Neq => write!(f, "neq"),
-                Keyword::And => write!(f, "and"),
-                Keyword::Or => write!(f, "or"),
-                Keyword::Not => write!(f, "not"),
-                Keyword::True => write!(f, "true"),
-                Keyword::False => write!(f, "false"),
-                Keyword::If => write!(f, "if"),
-                Keyword::Let => write!(f, "let"),
-                Keyword::Defun => write!(f, "defun"),
-                Keyword::Lambda => write!(f, "lambda"),
-                Keyword::Cons => write!(f, "cons"),
-                Keyword::Nil => write!(f, "nil"),
         }
     }
 }
 
 
-static KEYWORDS: &[&'static str] = &[
-    "eq", "add", "sub", "mul", "div", 
-    "gt", "ge", "lt", "le", "neq",
-    "and", "or", "not", "true", 
-    "false", "if", "let", "defun", 
-    "lambda", "cons", "nil" 
-];
-
-fn get_kind(token: &String) -> Kind {
+fn get_symbol(token: &String) -> Symbol {
     let t = (*token).as_str();
     match t {
-        "(" => Kind::Start,
-        ")" => Kind::End,
-        _ if KEYWORDS.contains(&t) => Kind::Keyword,
-        _ if t.starts_with("\"") && t.ends_with("\"")=> Kind::Literal,
-        _ if t.parse::<i64>().is_ok() => Kind::Integer,
-        _ if t.parse::<f64>().is_ok() => Kind::Decimal,
+        "(" => Symbol::Lparen,
+        ")" => Symbol::Rparen,
+        "nil" => Symbol::Nil,
+        "eq" => Symbol::Eq,
+        "add" => Symbol::Add,        
+        "sub" => Symbol::Sub,
+        "mul" => Symbol::Mul,
+        "div" => Symbol::Div,
+        "gt" => Symbol::Gt,
+        "ge" => Symbol::Ge,
+        "lt" => Symbol::Lt,
+        "le" => Symbol::Le,
+        "ne" => Symbol::Ne,
+        "and" => Symbol::And,
+        "or" => Symbol::Or,
+        "not" => Symbol::Not,
+        "true" => Symbol::True,
+        "false" => Symbol::False,
+        _ if t.starts_with("\"") && t.ends_with("\"")=> Symbol::Literal,
+        _ if t.parse::<i64>().is_ok() => Symbol::Integer,
+        _ if t.parse::<f64>().is_ok() => Symbol::Decimal,
         _ => {
             let t_chars: Vec<char> = t.chars().collect();
             if t_chars[0].is_ascii_alphabetic() || t_chars[0] == '_' {
-                return Kind::Identifier;
+                return Symbol::Identifier;
             }
             panic!("Cannot parse token {}", t);
         }
@@ -110,25 +89,36 @@ fn get_kind(token: &String) -> Kind {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Token {
     pub loc: usize,
-    pub kind: Kind,
+    pub symbol: Symbol,
     pub value: String,
 }
 
-impl PartialEq<Kind> for Token {
-    fn eq(&self, other: &Kind) -> bool {
-        self.kind == *other
+impl Token {
+
+    pub fn nil(loc: usize) -> Self {
+        Token {
+            loc: loc,
+            symbol: Symbol::Nil,
+            value: "nil".to_string()
+        }
     }
 }
 
-impl PartialEq<Token> for Kind {
+impl PartialEq<Symbol> for Token {
+    fn eq(&self, other: &Symbol) -> bool {
+        self.symbol == *other
+    }
+}
+
+impl PartialEq<Token> for Symbol {
     fn eq(&self, other: &Token) -> bool {
-        *self == other.kind
+        *self == other.symbol
     }
 }
 
 impl fmt::Display for Token {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Token{{loc: {}, kind: {}, value: {} }}", self.loc, self.kind, self.value)
+        write!(f, "Token{{loc: {}, symbol: {}, value: {} }}", self.loc, self.symbol, self.value)
     }
 }
 
@@ -140,12 +130,19 @@ pub struct Lexer
 
 impl Lexer {
 
+    pub fn debug_print(&self) {
+        for i in 0..self.tokens.len() {
+            print!("\t{}\n", self.tokens[self.tokens.len() - 1 - i]);
+        }
+        println!();
+    }
+
     pub fn len(&self) -> usize {
         self.tokens.len()
     }
 
     pub fn peek_token(&self) -> Option<Token> {
-        if self.tokens.len() > 0 {
+        if self.tokens.len() == 0 {
             return None
         }
         return Some(self.tokens[self.tokens.len() - 1].clone());
@@ -153,6 +150,10 @@ impl Lexer {
 
     pub fn consume_token(&mut self) -> Option<Token> {
         return self.tokens.pop();
+    }
+
+    pub fn error(&self, message: &str) {
+        println!("{}", message);
     }
 
     pub fn tokenize(data: String) -> Self {
@@ -166,7 +167,7 @@ impl Lexer {
                     if !token.is_empty() {
                         tokens.push(Token{
                             loc: chars_index - token.len(),
-                            kind: get_kind(&token),
+                            symbol: get_symbol(&token),
                             value: token.clone()
                         });
                         token.clear();
@@ -175,7 +176,7 @@ impl Lexer {
                 '(' => {
                     tokens.push(Token{
                         loc: chars_index,
-                        kind: Kind::Start,
+                        symbol: Symbol::Lparen,
                         value: String::from("("),
                     })
                 }
@@ -183,14 +184,14 @@ impl Lexer {
                     if !token.is_empty() {
                         tokens.push(Token{
                             loc: chars_index - token.len(),
-                            kind: get_kind(&token),
+                            symbol: get_symbol(&token),
                             value: token.clone()
                         });
                         token.clear();
                     }
                     tokens.push(Token{
                         loc: chars_index,
-                        kind: Kind::End,
+                        symbol: Symbol::Rparen,
                         value: String::from(")"),
                     })
                 }
@@ -200,31 +201,203 @@ impl Lexer {
             }
             chars_index += 1;
         } 
-
+        
+        tokens.reverse();
         Lexer { tokens }
     } 
 }
 
 
-pub mod parser {
-    /***
-    * # program: start of program
-    * # expression: a keyword or identifier followed by any number of terms
-    * # term: number, string literal, boolean value (true, false)
-    *
-    *
-    * program = expression
-    * expression  =
-    *     [ "(" keyword expresson { expression } ")" ]
-    *     [ "(" ")" ]
-    ***/
+#[derive(Debug)]
+pub struct Parser {
+    lexer: Lexer,
 }
 
+impl Parser {
 
+    fn accept(&self, accepted: Symbol) -> bool {
+        match self.lexer.peek_token() {
+            Some(t) => t.symbol == accepted,
+            None => panic!("No symbols left")
+        }
+    }
+
+    fn expect(&self, expected: Symbol) -> bool {
+        if self.accept(expected) {
+            return true;
+        }
+        self.lexer.error("Unexpected symbol!");
+        return false;
+    }
+
+    // // assumes the next token exists and is an integer
+    // fn integer(&mut self) -> i64 {
+    //     let t = self.lexer.consume_token().unwrap();
+    //     t.value.parse::<i64>().unwrap()
+    // }
+    //
+    // // assumes the next token exists and is an decimal
+    // fn decimal(&mut self) -> f64 {
+    //     let t = self.lexer.consume_token().unwrap();
+    //     t.value.parse::<f64>().unwrap()
+    // }
+
+    fn binomial_op(&mut self, op: Symbol) -> Option<String> {
+        
+        let lhs_token: Token;
+        let rhs_token: Token;
+        if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
+            lhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            lhs_token = self.expression()
+        } else {
+            panic!("Unexpected token {}", self.lexer.peek_token().unwrap());
+        }
+
+        if self.accept(Symbol::Integer) || self.accept(Symbol::Decimal) {
+            rhs_token = self.lexer.consume_token().unwrap();
+        } else if self.accept(Symbol::Lparen) {
+            rhs_token = self.expression()
+        } else {
+            panic!("Unexpected token {}", self.lexer.peek_token().unwrap());
+        }
+
+        match (lhs_token.symbol, rhs_token.symbol) {
+            (Symbol::Integer, Symbol::Integer) => {
+                let lhs = lhs_token.value.parse::<i64>().unwrap();
+                let rhs = rhs_token.value.parse::<i64>().unwrap();
+                match op {
+                    Symbol::Add => Some((lhs + rhs).to_string()),
+                    Symbol::Sub => Some((lhs - rhs).to_string()),
+                    Symbol::Mul => Some((lhs * rhs).to_string()),
+                    Symbol::Div => {
+                        if rhs == 0 {
+                            panic!("Divide by zero");
+                        }
+                        Some((lhs / rhs).to_string())
+                    }
+                    _ => None
+                }
+            },
+            (Symbol::Decimal, Symbol::Integer) | 
+                (Symbol::Integer, Symbol::Decimal) |
+                (Symbol::Decimal, Symbol::Decimal) => {
+                let lhs = lhs_token.value.parse::<f64>().unwrap();
+                let rhs = rhs_token.value.parse::<f64>().unwrap();
+                match op {
+                    Symbol::Add => Some((lhs + rhs).to_string()),
+                    Symbol::Sub => Some((lhs - rhs).to_string()),
+                    Symbol::Mul => Some((lhs * rhs).to_string()),
+                    Symbol::Div => {
+                        if rhs == 0.0 {
+                            panic!("Divide by zero");
+                        }
+                        Some((lhs / rhs).to_string())
+                    }
+                    _ => None
+                }
+            },
+            _ => None
+        }
+    }
+
+
+    fn expression(&mut self) -> Token {
+        if self.expect(Symbol::Lparen) {
+            self.lexer.consume_token();
+        } else {
+            panic!("Expected (")
+        }
+
+        let result: Token;
+        
+        match self.lexer.peek_token() {
+            Some(t) => {
+                match t.symbol {
+                    Symbol::Add => {
+                        self.lexer.consume_token();
+                        let v = match self.binomial_op(Symbol::Add) {
+                            Some(v) => v,
+                            None => panic!("What the hell?")
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Integer,
+                            value: v
+                        };
+                    }
+                    Symbol::Sub => {
+                        self.lexer.consume_token();
+                        let v = match self.binomial_op(Symbol::Sub) {
+                            Some(v) => v,
+                            None => panic!("Invalid input!!")
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Integer,
+                            value: v
+                        };
+                    }
+                    Symbol::Mul => {
+                        self.lexer.consume_token();
+                        let v = match self.binomial_op(Symbol::Mul) {
+                            Some(v) => v,
+                            None => panic!("Invalid input!!")
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Integer,
+                            value: v
+                        };
+                    }
+                    Symbol::Div => {
+                        self.lexer.consume_token();
+                        let v = match self.binomial_op(Symbol::Div) {
+                            Some(v) => v,
+                            None => {
+                                return Token::nil(t.loc);
+                            }
+                        };
+
+                        result = Token {
+                            loc: t.loc,
+                            symbol: Symbol::Integer,
+                            value: v
+                        };
+                    }
+                    _ => {
+                        panic!("Unexpected or unimlemented symbol {}", t);
+                    }
+                }
+            },
+            None => {
+                panic!("Invalid Syntax");
+            }
+        }
+        if self.expect(Symbol::Rparen) {
+            self.lexer.consume_token();
+        } else {
+            panic!("Expected )");
+        }
+
+        result
+    }
+
+    fn run(&mut self) {
+        let result = self.expression();
+        print!("{}\n", result.value);
+    }
+
+
+    fn new(lexer: Lexer) -> Self {
+        Parser { lexer: lexer }
+    }
+}
 
 pub fn run(data: String) {
-    let mut lexer: Lexer = Lexer::tokenize(data);
-    while lexer.len() > 0 {
-        print!("{}\n", lexer.consume_token().unwrap());
-    }
+    let lexer: Lexer = Lexer::tokenize(data);
+    Parser::new(lexer).run();
 }

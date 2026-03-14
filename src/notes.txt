@@ -1,0 +1,59 @@
+program = expression
+
+expression =
+	'(' ')'
+	| '(' keyword expression {expression} ')'
+	| '(' 'if' condition expression expression ')'
+	| '(' 'defun' ident '(' ident {ident} ')' expression ')'
+
+
+keywords:
+	add
+	sub
+	mul
+	div
+	eq
+	ne
+	lt
+	gt
+	le
+	ge
+	cons
+
+
+get_int() {
+	value = consume();
+	int_value = parse_int(value);
+	return int_value
+}
+
+add() {
+	lhs = get_int();
+	rhs = get_int();
+	return lhs + rhs
+}
+sub() {}
+mul() {}
+div() {}
+
+
+get_keyword() {
+	keyword = consume();
+	switch (keyword) {
+		// here we enumerate all allowed keywords
+		case 'add': add(); break;
+		case 'sub': sub(); break;
+		case 'mul': mul(); break;
+		case 'div': div(); break;
+	}
+}
+
+expression() {
+	start();
+	get_keyword();
+	end();
+}
+
+program() {
+	expression();
+}
