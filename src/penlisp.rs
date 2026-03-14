@@ -345,7 +345,10 @@ impl Parser {
     fn binomial_equal_op(&mut self, op: Symbol) -> Option<String> {
 
         let lhs_token: Token;
-        if self.accept(Symbol::Bool) {
+        if self.accept(Symbol::Bool) || 
+            self.accept(Symbol::Integer) ||
+            self.accept(Symbol::Decimal) ||
+            self.accept(Symbol::Literal) {
             lhs_token = self.lexer.consume_token().unwrap();
         } else if self.accept(Symbol::Lparen) {
             lhs_token = self.expression();
@@ -354,7 +357,10 @@ impl Parser {
         }
 
         let rhs_token: Token;
-        if self.accept(Symbol::Bool) {
+        if self.accept(Symbol::Bool) || 
+            self.accept(Symbol::Integer) ||
+            self.accept(Symbol::Decimal) ||
+            self.accept(Symbol::Literal) {
             rhs_token = self.lexer.consume_token().unwrap();
         } else if self.accept(Symbol::Lparen) {
             rhs_token = self.expression();
@@ -487,14 +493,15 @@ impl Parser {
                         // conditional syntax
                         // (if (cond) true_path false_path)
                         self.lexer.consume_token();
+
                         let cond_result_token: Token;
-                        if self.expect(Symbol::Lparen) {
-                            cond_result_token = self.expression();
-                            if cond_result_token.symbol != Symbol::Bool {
-                                panic!("Condition result is not a bool!");
-                            }
-                        } else {
-                            cond_result_token = self.lexer.consume_token().unwrap();
+                        if !self.expect(Symbol::Lparen) {
+                            panic!("Condition must be an expression!");
+                        }  
+
+                        cond_result_token = self.expression();
+                        if cond_result_token.symbol != Symbol::Bool {
+                            panic!("Condition result is not a bool!");
                         }
 
                         let cond_result = cond_result_token.value.parse::<bool>().unwrap();
@@ -504,6 +511,17 @@ impl Parser {
                                 result = self.expression();
                             } else {
                                 result = self.lexer.consume_token().unwrap();
+                                
+                            }
+
+                            // skip false path
+                            if self.accept(Symbol::Lparen) {
+                                while !self.accept(Symbol::Rparen) {
+                                    self.lexer.consume_token();
+                                }
+                                self.lexer.consume_token(); // consume Rparen here
+                            } else {
+                                self.lexer.consume_token();
                             }
                         } else {
                             // false path
@@ -513,7 +531,11 @@ impl Parser {
                                 while !self.accept(Symbol::Rparen) {
                                     self.lexer.consume_token();
                                 }
+                                self.lexer.consume_token(); // consume Rparen here
+                            } else {
+                                self.lexer.consume_token();
                             }
+
                             if self.accept(Symbol::Lparen) {
                                 result = self.expression();
                             } else {
@@ -530,6 +552,7 @@ impl Parser {
                 panic!("Invalid Syntax");
             }
         }
+        
         if self.expect(Symbol::Rparen) {
             self.lexer.consume_token();
         } else {
